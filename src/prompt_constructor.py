@@ -459,7 +459,108 @@ Here are some best practices for writing CUDA kernels on GPU: \n\n"""
     return Nonoe
 
 
+############################################
+# Tenstorrent TT-Metal Kernel Prompt
+############################################
+TENSTORRENT_KERNEL_PROBLEM_STATEMENT = """You write custom Tenstorrent TT-Metal kernels to implement efficient computations on Tenstorrent hardware. \n
+    You will be writing C++ code that uses the TT-Metal API to implement kernels that run directly on Tenstorrent cores. You have complete freedom to choose the approach, including single-core or multi-core implementations, different memory patterns, and optimization strategies. You are only limited by your imagination.\n
+"""
 
+TENSTORRENT_KERNEL_PROBLEM_INSTRUCTION = """
+Write an efficient TT-Metal kernel implementation for the given problem! Output the complete C++ code in codeblocks. Please generate real, compilable C++ code that uses the TT-Metal API correctly. Include proper device management, memory allocation, kernel creation, and execution. Just output the complete kernel code, no other text!\n
+"""
+
+def prompt_generate_ttmetal_kernel_from_examples(problem_description: str) -> str:
+    """
+    Generate a prompt for creating TT-Metal kernels using actual kernel code examples
+    """
+    
+    # Read the full matrix multiplication example from the actual file
+    example_matmul_path = "/home/m48chen/tt-metal/tt_metal/programming_examples/matmul/matmul_single_core/matmul_single_core.cpp"
+    example_hello_compute_path = "/home/m48chen/tt-metal/tt_metal/programming_examples/hello_world_compute_kernel/hello_world_compute_kernel.cpp"
+    
+    try:
+        example_matmul_full = read_file(example_matmul_path)
+        example_hello_compute_full = read_file(example_hello_compute_path)
+    except:
+        # Fallback to shortened versions if files not found
+        example_matmul_full = """
+#include <tt-metalium/host_api.hpp>
+#include <tt-metalium/device.hpp>
+// ... (shortened version as fallback)
+"""
+        example_hello_compute_full = """
+#include <tt-metalium/host_api.hpp>
+// ... (shortened version as fallback)
+"""
+
+    prompt = TENSTORRENT_KERNEL_PROBLEM_STATEMENT
+
+    prompt += f"""
+    Here are examples of TT-Metal kernel implementations to show you the programming pattern:
+
+    Example 1 - Simple Compute Kernel:
+    ```cpp
+    {example_hello_compute_full}
+    ```
+
+    Example 2 - Complete Matrix Multiplication Kernel:
+    ```cpp
+    {example_matmul_full}
+    ```
+
+    Key TT-Metal Programming Concepts:
+    - Use IDevice* device = CreateDevice(device_id) to initialize hardware
+    - Create Program with Program program = CreateProgram()
+    - Define CoreCoord core = {{x, y}} for target cores
+    - Use CreateKernel() to load compute and data movement kernels
+    - Allocate DRAM buffers with InterleavedBufferConfig and CreateBuffer()
+    - Set up circular buffers with CircularBufferConfig for on-chip memory
+    - Use EnqueueWriteBuffer/EnqueueReadBuffer for data transfer
+    - Execute with EnqueueProgram() and wait with Finish()
+    - Always CloseDevice() when done
+
+    Memory Layout:
+    - Data is organized in 32x32 tiles (TILE_HEIGHT x TILE_WIDTH)
+    - Use tilize_nfaces() to convert row-major to tiled layout
+    - Use untilize_nfaces() to convert back to row-major
+    - Page size typically set to single_tile_size for DRAM buffers
+
+    """
+
+    prompt += f"""
+    Problem to implement:
+    {problem_description}
+    """
+    
+    prompt += TENSTORRENT_KERNEL_PROBLEM_INSTRUCTION
+    return prompt
+
+def prompt_generate_ttmetal_kernel_simple(problem_description: str) -> str:
+    """
+    Generate a simpler prompt for TT-Metal kernels with just the essential info
+    """
+    prompt = TENSTORRENT_KERNEL_PROBLEM_STATEMENT
+    
+    prompt += f"""
+    Essential TT-Metal API patterns:
+    - Device: IDevice* device = CreateDevice(device_id)
+    - Program: Program program = CreateProgram()
+    - Cores: CoreCoord core = {{x, y}}
+    - Kernels: CreateKernel(program, kernel_path, core, config)
+    - Memory: InterleavedBufferConfig + CreateBuffer() for DRAM
+    - Execution: EnqueueProgram(cq, program, false)
+    - Cleanup: CloseDevice(device)
+    
+    Data is processed in 32x32 tiles. Use bfloat16 data type.
+    Hardware has compute cores (UNPACK, MATH, PACK) and data movement cores (RISCV).
+    
+    Problem to implement:
+    {problem_description}
+    """
+    
+    prompt += TENSTORRENT_KERNEL_PROBLEM_INSTRUCTION
+    return prompt
 
 
 def prompt_fix_compile(ref_arch_src, custom_cuda, metadata):

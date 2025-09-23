@@ -21,6 +21,7 @@ from together import Together
 from openai import OpenAI
 import google.generativeai as genai
 import anthropic
+import jwt  # For JWT token generation
 
 # from datasets import load_dataset
 import numpy as np
@@ -44,6 +45,12 @@ SGLANG_KEY = os.environ.get("SGLANG_API_KEY")  # for Local Deployment
 ANTHROPIC_KEY = os.environ.get("ANTHROPIC_API_KEY")
 SAMBANOVA_API_KEY = os.environ.get("SAMBANOVA_API_KEY")
 FIREWORKS_API_KEY = os.environ.get("FIREWORKS_API_KEY")
+
+# JWT authentication variables
+JWT_SECRET = os.environ.get("JWT_SECRET", "yourmom")
+JWT_TEAM_ID = os.environ.get("JWT_TEAM_ID", "tenstorrent")
+JWT_TOKEN_ID = os.environ.get("JWT_TOKEN_ID", "debug-test")
+JWT_BASE_URL = os.environ.get("JWT_BASE_URL", "http://localhost:8000")  # Default base URL
 
 
 ########################################################
@@ -83,6 +90,22 @@ def set_gpu_arch(arch_list: list[str]):
     
     os.environ["TORCH_CUDA_ARCH_LIST"] = ";".join(arch_list)
 
+def generate_jwt_token(team_id: str = None, token_id: str = None, secret: str = None) -> str:
+    """
+    Generate JWT token for authentication, similar to the bash script approach
+    """
+    payload = {
+        "team_id": team_id or JWT_TEAM_ID,
+        "token_id": token_id or JWT_TOKEN_ID
+    }
+    
+    token = jwt.encode(payload, secret or JWT_SECRET, algorithm="HS256")
+    
+    # Handle both string and bytes return types from jwt.encode
+    if isinstance(token, bytes):
+        return token.decode()
+    return token
+
 def query_server(
     prompt: str | list[dict],  # string if normal prompt, list of dicts if chat prompt,
     system_prompt: str = "You are a helpful assistant",  # only used for chat prompts
@@ -112,6 +135,7 @@ def query_server(
     - Gemini / Google AI Studio
     - Fireworks (OpenAI compatbility)
     - SGLang (Local Server)
+    - JWT (Custom JWT-based authentication)
     """
     # Select model and client based on arguments
     match server_type:
@@ -121,6 +145,16 @@ def query_server(
                 api_key=SGLANG_KEY, base_url=f"{url}/v1", timeout=None, max_retries=0
             )
             model = "default"
+        case "jwt":
+            # JWT-based authentication for custom endpoints
+            bearer_token = generate_jwt_token()
+            client = OpenAI(
+                api_key=bearer_token,
+                base_url=JWT_BASE_URL + "/v1",
+                timeout=10000000,
+                max_retries=3,
+            )
+            model = model_name
         case "deepseek":
             client = OpenAI(
                 api_key=DEEPSEEK_KEY,
@@ -357,6 +391,11 @@ def query_server(
 
 # a list of presets for API server configs
 SERVER_PRESETS = {
+    "jwt": {
+        "model_name": "deepseek-ai/DeepSeek-R1-Distill-Llama-70B", 
+        "temperature": 0.2,
+        "max_tokens": 128,
+    },
     "deepseek": {
         "temperature": 1.6, 
         "model_name": "deepseek",

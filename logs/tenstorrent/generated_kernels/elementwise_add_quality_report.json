@@ -1,0 +1,39 @@
+{
+  "problem_name": "elementwise_add",
+  "problem_level": 1,
+  "kernel_path": "logs/tenstorrent/generated_kernels/elementwise_add_sample_0_ttmetal_kernel.cpp",
+  "timestamp": "2025-09-22 22:57:01",
+  "analysis": {
+    "syntax_checks": {
+      "has_includes": true,
+      "has_main": true,
+      "balanced_braces": true,
+      "has_namespace": true
+    },
+    "api_usage": {
+      "uses_CreateDevice": true,
+      "uses_CloseDevice": true,
+      "uses_CreateProgram": false,
+      "uses_CoreCoord": true,
+      "uses_CreateKernel": true,
+      "uses_EnqueueProgram": true,
+      "uses_InterleavedBufferConfig": true,
+      "uses_CreateBuffer": true,
+      "uses_EnqueueWriteBuffer": true,
+      "uses_EnqueueReadBuffer": true
+    },
+    "best_practices": {
+      "uses_bfloat16": true,
+      "handles_tiling": true,
+      "error_handling": true,
+      "proper_cleanup": true
+    },
+    "problem_specific": {
+      "two_input_matrices": true,
+      "element_wise_operation": true,
+      "single_core": true
+    },
+    "overall_score": 95.23809523809523
+  },
+  "recommendations": []
+}
